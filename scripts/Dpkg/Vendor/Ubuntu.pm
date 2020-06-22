@@ -100,12 +100,50 @@ sub run_hook {
 
         require Dpkg::BuildOptions;
 
-	my $build_opts = Dpkg::BuildOptions->new();
+        my $opts_build = Dpkg::BuildOptions->new(envvar => 'DEB_BUILD_OPTIONS');
+        my $opts_maint = Dpkg::BuildOptions->new(envvar => 'DEB_BUILD_MAINT_OPTIONS');
 
-	if (!$build_opts->has('noopt')) {
-            require Dpkg::Arch;
+        # in Ubuntu we enable stackclashprotection and cfprotection by
+        # default - so if these have not been disabled then we need to
+        # enable them - and if they have been disabled we need to emit
+        # flags to override and disable them - and ensure
+        # DEB_BUILD_MAINT_OPTIONS takes precedence over DEB_BUILD_OPTIONS
+        my $hardening = '';
+        if ($opts_maint->has('hardening')) {
+            $hardening = $opts_maint->get('hardening');
+        } elsif ($opts_build->has('hardening')) {
+            $hardening = $opts_build->get('hardening');
+        }
 
-            my $arch = Dpkg::Arch::get_host_arch();
+        require Dpkg::Arch;
+
+        my $arch = Dpkg::Arch::get_host_arch();
+        my ($abi, $libc, $os, $cpu) = Dpkg::Arch::debarch_to_debtuple($arch);
+
+        if ($cpu =~ /^(?:amd64|arm64|i386|ppc64|ppc64el|s390x|x32)$/) {
+            # Stack clash protection only enabled on amd64, arm64, i386, ppc64,
+            # ppc64el, s390x, x32
+            my $disabled = $hardening =~ "-stackclashprotection";
+            my $flag = $disabled ? '-fno-stack-clash-protection' : '-fstack-clash-protection';
+            for my $envvar (qw(CFLAGS CXXFLAGS OBJCFLAGS OBJCXXFLAGS)) {
+                $flags->append($envvar, $flag);
+            }
+            $flags->set_feature('hardening', 'stackclashprotection', !$disabled);
+        }
+
+
+        if ($cpu =~ /^(?:amd64|i386|x32)$/) {
+            # Control flow protection is Intel only so only enabled on amd64,
+            # i386, and x32
+            my $disabled = $hardening =~ "-cfprotection";
+            my $flag = $disabled ? '-fcf-protection=none' : '-fcf-protection';
+            for my $envvar (qw(CFLAGS CXXFLAGS OBJCFLAGS OBJCXXFLAGS)) {
+                $flags->append($envvar, $flag);
+            }
+            $flags->set_feature('hardening', 'cfprotection', !$disabled);
+        }
+
+	if (!$opts_build->has('noopt')) {
             if (Dpkg::Arch::debarch_eq($arch, 'ppc64el')) {
 		for my $flag (qw(CFLAGS CXXFLAGS OBJCFLAGS OBJCXXFLAGS GCJFLAGS
 		                 FFLAGS FCFLAGS)) {

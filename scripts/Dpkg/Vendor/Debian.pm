@@ -124,6 +124,8 @@ sub _add_build_flags {
             format => 1,
             relro => 1,
             bindnow => 0,
+            stackclashprotection => 0,
+            cfprotection => 0,
         },
     );
 
@@ -350,6 +352,16 @@ sub _add_build_flags {
 	# relro not implemented on ia64, hppa, avr32.
 	$use_feature{hardening}{relro} = 0;
     }
+    if ($cpu !~ /^(?:amd64|arm64|i386|ppc64|ppc64el|s390x|x32)$/) {
+	# Stack clash protection only enabled on amd64, arm64, i386, ppc64,
+	# ppc64el, s390x, x32
+	$use_feature{hardening}{stackclashprotection} = 0;
+    }
+    if ($cpu !~ /^(?:amd64|i386|x32)$/) {
+	# Control flow protection is Intel only so only enabled on amd64,
+	# i386, and x32
+	$use_feature{hardening}{cfprotection} = 0;
+    }
 
     # Mask features that might be influenced by other flags.
     if ($opts_build->has('noopt')) {
@@ -438,6 +450,24 @@ sub _add_build_flags {
     # Bindnow
     if ($use_feature{hardening}{bindnow}) {
 	$flags->append('LDFLAGS', '-Wl,-z,now');
+    }
+
+    # Stack clash protection
+    if ($use_feature{hardening}{stackclashprotection}) {
+	my $flag = '-fstack-clash-protection';
+	$flags->append('CFLAGS', $flag);
+	$flags->append('CXXFLAGS', $flag);
+	$flags->append('OBJCFLAGS', $flag);
+	$flags->append('OBJCXXFLAGS', $flag);
+    }
+
+    # Control flow integrity protection
+    if ($use_feature{hardening}{cfprotection}) {
+	my $flag = '-fcf-protection';
+	$flags->append('CFLAGS', $flag);
+	$flags->append('CXXFLAGS', $flag);
+	$flags->append('OBJCFLAGS', $flag);
+	$flags->append('OBJCXXFLAGS', $flag);
     }
 
     ## Commit

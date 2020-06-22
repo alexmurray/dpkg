@@ -53,10 +53,12 @@ my %known_features = (
     ) ],
     hardening => [ qw(
         bindnow
+        cfprotection
         format
         fortify
         pie
         relro
+        stackclashprotection
         stackprotector
         stackprotectorstrong
     ) ],

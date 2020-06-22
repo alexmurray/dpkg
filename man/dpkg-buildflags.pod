@@ -457,6 +457,26 @@ Disabling B<stackprotector> will also disable this setting.
 This feature has the same requirements as B<stackprotector>, and in
 addition also requires gcc 4.9 and later.
 
+=item B<stackclashprotection>
+
+This setting adds
+B<-fstack-clash-protection>
+to B<CFLAGS>, B<CXXFLAGS>, B<OBJCFLAGS> and B<OBJCXXFLAGS>.  This adds
+extra instructions around variable length stack memory allocations (via
+B<alloca> or variable length arrays) to probe each page of memory at
+allocation time. This mitigates stack-clash attacks by ensuring all stack
+memory allocations are valid (or by raising a segmentation fault if they
+are not, and hence turning a possible code-execution attack into a denial
+of service).
+
+=item B<cfprotection>
+
+This setting adds
+B<-fcf-protection>
+to B<CFLAGS>, B<CXXFLAGS>, B<OBJCFLAGS> and B<OBJCXXFLAGS>.  This instructs
+the compiler to generate additional instructions to support Intel's
+Control-flow Enforcement Technology (CET).
+
 =item B<relro>
 
 This setting (enabled by default) adds
